@@ -5,7 +5,7 @@ Plain HTML + JavaScript in the browser (sound generated live with the Web Audio 
 
 | Page | Machine |
 |---|---|
-| `index.html` | **Studio**: two rows (A and B) of all three machines. Click one to enlarge it. Shared tempo, **Start all** on the same downbeat, and multiplayer rooms. |
+| `index.html` | **Studio**: the three machines, with + buttons to add more and ▶ / ■ on each one. Click a machine to enlarge it. Shared tempo, **Start all** on the same downbeat, and multiplayer rooms. |
 | `fm1.html` | **FM-1** style 6-operator FM synth: 32 DX7-style algorithms, 12 voices, arpeggiator, 16-step sequencer, MIDI input. |
 | `tb303.html` | **TB-303 / TD-3** style acid bass line: resonant filter, accent, slide, 16-step sequencer, 4 patterns. |
 | `tr909.html` | **TR-909** style drum machine: 11 synthesized instruments, accent row, shuffle, live recording. |
