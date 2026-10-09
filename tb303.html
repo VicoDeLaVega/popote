@@ -205,9 +205,13 @@ const DEFAULT_PATS=[
  Array.from({length:16},()=>S(0,0,0,0,0))
 ];
 const KDEF={tune:0,cut:.35,res:.7,env:.6,dec:.4,acc:.6,drive:.15,dly:.15,vol:.8};
-let st={P:{...KDEF,wave:0,bpm:128,swing:0,len:16},pats:JSON.parse(JSON.stringify(DEFAULT_PATS)),bank:0};
-try{const sv=JSON.parse(localStorage.getItem('acid303')||'null');if(sv&&sv.pats&&sv.P)st={...st,...sv,P:{...st.P,...sv.P}};}catch(_){}
-const save=()=>{try{localStorage.setItem('acid303',JSON.stringify(st));}catch(_){}};
+// Row in the studio (?slot=a|b): row B starts on the empty pattern D and keeps its own saved session
+const SLOT=new URLSearchParams(location.search).get('slot')||'a', MYID='tb303-'+SLOT, SKEY='acid303'+(SLOT==='a'?'':':'+SLOT);
+const hubNote=m=>{try{if(window.parent!==window&&window.parent.studioHub)window.parent.studioHub.note(MYID,m);}catch(_){}};
+const liveSend=m=>{send(m);hubNote(m);};
+let st={P:{...KDEF,wave:0,bpm:128,swing:0,len:16},pats:JSON.parse(JSON.stringify(DEFAULT_PATS)),bank:SLOT==='a'?0:3};
+try{const sv=JSON.parse(localStorage.getItem(SKEY)||'null');if(sv&&sv.pats&&sv.P)st={...st,...sv,P:{...st.P,...sv.P}};}catch(_){}
+const save=()=>{try{localStorage.setItem(SKEY,JSON.stringify(st));}catch(_){}};
 let pat=()=>st.pats[st.bank];
 let ctx=null,node=null,audioP=null,dly=null,dFb=null,wet=null,playing=false,curStep=-1,sel=0,writeMode=false,kbOct=0,liveAcc=false;
 
@@ -325,10 +329,10 @@ const held=[];
 function noteDown(s){kbKeys[s]&&kbKeys[s].classList.add('down');
   if(writeMode){const x=pat()[sel];x.n=s;x.o=kbOct;x.g=true;sel=(sel+1)%st.P.len;sendPat();renderGrid();}
   if(playing&&!writeMode)return;
-  ensureAudio().then(()=>{send({type:'non',n:36+s+12*kbOct,acc:liveAcc,legato:held.length>0});held.push(s);});}
+  ensureAudio().then(()=>{liveSend({type:'non',n:36+s+12*kbOct,acc:liveAcc,legato:held.length>0});held.push(s);});}
 function noteUp(s){kbKeys[s]&&kbKeys[s].classList.remove('down');const i=held.indexOf(s);if(i>=0)held.splice(i,1);
-  if(!held.length)send({type:'noff'});
-  else{send({type:'non',n:36+held[held.length-1]+12*kbOct,acc:liveAcc,legato:true});}}
+  if(!held.length)liveSend({type:'noff'});
+  else{liveSend({type:'non',n:36+held[held.length-1]+12*kbOct,acc:liveAcc,legato:true});}}
 const ptrs=new Map();
 kb.addEventListener('pointerdown',e=>{const k=e.target.closest('.key');if(!k)return;e.preventDefault();
   try{e.target.releasePointerCapture(e.pointerId);}catch(_){}const s=+k.dataset.s;ptrs.set(e.pointerId,s);noteDown(s);});
@@ -354,7 +358,14 @@ window.syncAPI={
   async start(abs){await ensureAudio();playing=true;send({type:'play',f:Math.round(ctxTimeAt(abs)*ctx.sampleRate)});$('#play').textContent=playing?'■ Stop':'▶ Run',$('#play').classList.toggle('on',playing);return ctx.state;},
   stop(){if(playing){playing=false;send({type:'stop'});$('#play').textContent=playing?'■ Stop':'▶ Run',$('#play').classList.toggle('on',playing);curStep=-1;renderLeds();}},
   setTempo(b){st.P.bpm=b;$('#bpm').value=b;sendP();},
-  get tempo(){return st.P.bpm;},get playing(){return playing;},state(){return ctx?ctx.state:'off';}
+  get tempo(){return st.P.bpm;},get playing(){return playing;},state(){return ctx?ctx.state:'off';},
+  getState(){const {bpm,...P}=st.P;return JSON.parse(JSON.stringify({P,pats:st.pats,bank:st.bank}));},
+  setState(s){
+    if(s.P){Object.assign(st.P,s.P);kUpd.forEach(f=>f());$('#swing').value=st.P.swing;$('#len').value=st.P.len;setWave(st.P.wave);}
+    if(s.pats)st.pats=[0,1,2,3].map(i=>Array.from({length:16},(_,j)=>{const x=(s.pats[i]||[])[j]||{};return {n:x.n|0,o:x.o|0,a:!!x.a,s:!!x.s,g:!!x.g};}));
+    if(s.bank!=null)st.bank=s.bank;
+    renderBanks();renderGrid();sendPat();},
+  remoteNote(m){if(node)send(m);}
 };
 
 // ---------- Boot

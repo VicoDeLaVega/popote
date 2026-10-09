@@ -316,6 +316,10 @@ const LOOK=0.12;
 const clock={bpm:120};
 const seq={steps:[36,null,36,48,null,36,46,null,36,null,43,null,36,48,null,51],playing:false,next:0,idx:0,sel:0,rec:false,gate:.6};
 const arp={on:false,mode:'up',rate:4,oct:1,latch:false,gate:.5,held:[],latched:[],next:0,i:0};
+// Row in the studio (?slot=a|b); row B starts with an empty sequence so the two rows don't double up
+const SLOT=new URLSearchParams(location.search).get('slot')||'a', MYID='fm1-'+SLOT;
+if(SLOT!=='a') seq.steps=Array(16).fill(null);
+const hubNote=m=>{try{if(window.parent!==window&&window.parent.studioHub)window.parent.studioHub.note(MYID,m);}catch(_){}};
 const uiq=[];
 function arpNotes(){
   const base=(arp.latch?arp.latched:arp.held).slice();
@@ -362,9 +366,10 @@ let curStep=-1;
 
 // ---------- Note input
 const keyEls={};
-function keyDown(n,vel){
-  if(!node){ensureAudio().then(()=>keyDown(n,vel));return;}
-  if(seq.rec){seq.steps[seq.sel]=n-octave*12;seq.sel=(seq.sel+1)%16;renderSteps();}
+function keyDown(n,vel,remote){
+  if(!node){if(!remote)ensureAudio().then(()=>keyDown(n,vel));return;}
+  if(!remote)hubNote({on:1,n,vel});
+  if(seq.rec&&!remote){seq.steps[seq.sel]=n-octave*12;seq.sel=(seq.sel+1)%16;renderSteps();}
   if(arp.on){
     const wasEmpty=arp.held.length===0;
     if(!arp.held.includes(n)) arp.held.push(n);
@@ -373,7 +378,8 @@ function keyDown(n,vel){
   } else send({type:'on',note:n,vel});
   setKeyVis(n,true);
 }
-function keyUp(n){
+function keyUp(n,remote){
+  if(!remote)hubNote({on:0,n});
   arp.held=arp.held.filter(x=>x!==n);
   if(!arp.on) send({type:'off',note:n});
   setKeyVis(n,false);
@@ -600,7 +606,18 @@ window.syncAPI={
   async start(abs){await ensureAudio();uiq.length=0;seq.idx=0;seq.next=ctxTimeAt(abs);seq.playing=true;seqUI();return ctx.state;},
   stop(){seq.playing=false;uiq.length=0;curStep=-1;seqUI();},
   setTempo(b){clock.bpm=b;$('#bpm').value=b;$('#bpmV').textContent=b;},
-  get tempo(){return clock.bpm;},get playing(){return seq.playing;},state(){return ctx?ctx.state:'off';}
+  get tempo(){return clock.bpm;},get playing(){return seq.playing;},state(){return ctx?ctx.state:'off';},
+  getState(){return clone({patch,glob,seq:{steps:seq.steps,gate:seq.gate},arp:{on:arp.on,mode:arp.mode,rate:arp.rate,oct:arp.oct,latch:arp.latch,gate:arp.gate}});},
+  setState(s){
+    const setRange=(id,v)=>{const el=$('#'+id);if(v==null||+el.value===v)return;el.value=v;el.dispatchEvent(new Event('input'));};
+    if(s.patch&&s.patch.ops){patch=s.patch;syncUI();postPatch();}
+    if(s.glob){Object.assign(glob,s.glob);['vol','vibRate','vibDepth','dTime','dFb','dMix'].forEach(id=>setRange(id,glob[id]));}
+    if(s.seq){if(s.seq.steps)seq.steps=Array.from({length:16},(_,i)=>s.seq.steps[i]==null?null:s.seq.steps[i]);setRange('seqGate',s.seq.gate);renderSteps();}
+    if(s.arp){const was=arp.on;Object.assign(arp,s.arp);if(was&&!arp.on)arp.latched=[];
+      $('#arpOn').classList.toggle('on',arp.on);$('#arpLatch').classList.toggle('on',arp.latch);
+      $('#arpMode').value=arp.mode;$('#arpRate').value=arp.rate;$('#arpOct').value=arp.oct;setRange('arpGate',arp.gate);}
+    drawLCD();},
+  remoteNote(m){if(m.on)keyDown(m.n,m.vel,true);else keyUp(m.n,true);}
 };
 
 // ---------- Boot

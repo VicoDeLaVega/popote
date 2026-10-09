@@ -15,25 +15,34 @@ nav.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:cent
 nav.tabs a{padding:8px 16px;border-radius:10px 10px 0 0;background:rgba(127,127,127,.25);color:inherit;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em}
 nav.tabs a.cur{background:var(--accent);color:var(--onink)}
 button,select{font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer}
+input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
 .bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
 .bar .hint{font-size:12px;color:var(--muted)}
-.sync{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;border-radius:12px;background:rgba(127,127,127,.16)}
-.sync b{font-size:12px;letter-spacing:.1em}
-.sync label{display:flex;align-items:center;gap:5px;font-size:13px}
-.sync input[type=number]{width:64px;font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;border-radius:12px;background:rgba(127,127,127,.16)}
+.strip b{font-size:12px;letter-spacing:.1em}
+.strip label{display:flex;align-items:center;gap:5px;font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.dot{width:10px;height:10px;border-radius:50%;background:#999}
+.dot.on{background:#2fa84f;box-shadow:0 0 8px #2fa84f}
+.dot.wait{background:#e0a020}
+#room{width:110px}
+#syncBpm{width:64px}
 #syncGo{background:var(--accent);color:var(--onink);border-color:var(--accent);font-weight:700;padding:6px 14px}
 #syncGo.on{background:#2fa84f;border-color:#2fa84f}
-#syncMsg{font-size:12px;color:var(--muted)}
+#syncMsg,#netMsg{font-size:12px;color:var(--muted)}
+.inc{display:flex;gap:4px;align-items:center;font-size:12px}
+.inc span{font-weight:700;margin-right:2px}
 .beat{width:12px;height:12px;border-radius:50%;background:rgba(127,127,127,.35)}
 .beat.on{background:var(--accent);box-shadow:0 0 8px var(--accent)}
 .stage{display:grid;gap:14px;align-items:start}
 .stage.overview{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stage.focus{grid-template-columns:minmax(0,3.2fr) minmax(0,1fr)}
-.stage.focus .panel.big{grid-column:1;grid-row:1 / span 2}
+.stage.focus .panel.big{grid-column:1;grid-row:1 / span 5}
 .stage.focus .panel:not(.big){grid-column:2}
 .panel{border-radius:14px;background:rgba(127,127,127,.14);padding:8px;view-transition-name:var(--vt);min-width:0}
 .ph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 8px;cursor:pointer;user-select:none}
 .ph b{font-size:13px;letter-spacing:.08em}
+.ph em{font-style:normal;font-size:11px;font-weight:800;padding:1px 7px;border-radius:6px;background:var(--accent);color:var(--onink);margin-left:6px}
 .ph button{padding:3px 9px;font-size:13px}
 .frame{position:relative;overflow:hidden;border-radius:10px}
 .frame iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:transparent}
@@ -48,30 +57,43 @@ button,select{font:inherit;color:var(--ink);background:var(--btn);border:1px sol
 </head>
 <body>
 <nav class="tabs"><a href="index.html" class="cur">Studio</a><a href="fm1.html">FM-1</a><a href="tb303.html">TB-303 / TD-3</a><a href="tr909.html">TR-909</a></nav>
-<div class="sync">
-  <b>🔗 SYNC</b>
+<div class="strip">
+  <span class="pill"><i class="dot" id="netDot"></i><span id="netState">Connecting…</span></span>
+  <label>Room <input type="text" id="room" maxlength="40"></label><button id="join">Join</button>
+  <button id="invite">🔗 Copy invite link</button>
+  <span id="netMsg"></span>
+</div>
+<div class="strip">
+  <b>SYNC</b>
   <button id="syncGo">▶ Start all</button>
   <label>Tempo <input type="number" id="syncBpm" min="40" max="300" value="126"> BPM</label>
   <button id="tapBtn" title="Tap at least twice in time">Tap</button>
-  <label><input type="checkbox" data-m="fm1" checked> FM-1 (sequencer)</label>
-  <label><input type="checkbox" data-m="tb303" checked> TB-303</label>
-  <label><input type="checkbox" data-m="tr909" checked> TR-909</label>
-  <span style="display:flex;gap:4px" id="beats"><i class="beat"></i><i class="beat"></i><i class="beat"></i><i class="beat"></i></span>
-  <span id="syncMsg">Tempo applies to every checked machine; Start launches them on the same downbeat.</span>
+  <span class="inc" id="incA"><span>A</span></span>
+  <span class="inc" id="incB"><span>B</span></span>
+  <span style="display:flex;gap:4px"><i class="beat"></i><i class="beat"></i><i class="beat"></i><i class="beat"></i></span>
+  <span id="syncMsg">Start launches every checked machine on the same downbeat.</span>
 </div>
 <div class="bar">
   <button id="overview">▦ Overview</button>
   <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard plays the machine you clicked last.</span>
 </div>
-<div class="stage overview" id="stage">
-  <div class="panel" data-id="fm1" style="--vt:p-fm1"><div class="ph"><b>FM-1</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="fm1.html" title="FM-1"></iframe><div class="shield"></div></div></div>
-  <div class="panel" data-id="tb303" style="--vt:p-tb303"><div class="ph"><b>TB-303 / TD-3</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="tb303.html" title="TB-303"></iframe><div class="shield"></div></div></div>
-  <div class="panel" data-id="tr909" style="--vt:p-tr909"><div class="ph"><b>TR-909</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="tr909.html" title="TR-909"></iframe><div class="shield"></div></div></div>
-</div>
+<div class="stage overview" id="stage"></div>
 <script>
-// Each machine renders at its full design width inside an iframe and is scaled down to fit its panel.
-const DW=1220;
-const stage=document.getElementById('stage');
+const $=s=>document.querySelector(s);
+const MACHINES=[['fm1','FM-1','fm1.html'],['tb303','TB-303 / TD-3','tb303.html'],['tr909','TR-909','tr909.html']];
+const SLOTS=['a','b'];
+const IDS=[];
+
+// ---------- Panels: each machine renders at full design width in an iframe, scaled to its panel
+const DW=1220, stage=$('#stage');
+for(const sl of SLOTS) for(const [m,name,src] of MACHINES){
+  const id=m+'-'+sl;IDS.push(id);
+  const p=document.createElement('div');p.className='panel';p.dataset.id=id;p.style.setProperty('--vt','p-'+id);
+  p.innerHTML=`<div class="ph"><b>${name}<em>${sl.toUpperCase()}</em></b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="${src}?slot=${sl}" title="${name} ${sl.toUpperCase()}"></iframe><div class="shield"></div></div>`;
+  stage.appendChild(p);
+  const box=$('#inc'+sl.toUpperCase()),lab=document.createElement('label');
+  lab.innerHTML=`<input type="checkbox" data-m="${id}" checked>${name.split(' ')[0]}`;box.appendChild(lab);
+}
 const panels=[...document.querySelectorAll('.panel')];
 let focused=null;
 function contentHeight(f){try{const b=f.contentDocument.body;const cs=getComputedStyle(b);
@@ -82,51 +104,123 @@ function fit(){for(const p of panels){const fr=p.querySelector('.frame'),f=fr.qu
 function setLayout(id){
   const run=()=>{focused=id;stage.classList.toggle('overview',!id);stage.classList.toggle('focus',!!id);
     panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.ph button').textContent=p.dataset.id===id?'⤡':'⤢';});
-    // focused machine first so it takes the big slot
     if(id) stage.prepend(panels.find(p=>p.dataset.id===id));
     else panels.forEach(p=>stage.appendChild(p));
     fit();};
   document.startViewTransition?document.startViewTransition(run):run();
 }
-panels.forEach(p=>{
+const ready=Promise.all(panels.map(p=>new Promise(res=>{
   p.querySelector('.ph').addEventListener('click',()=>setLayout(focused===p.dataset.id?null:p.dataset.id));
   p.querySelector('.shield').addEventListener('click',()=>setLayout(p.dataset.id));
   const f=p.querySelector('iframe');
-  f.addEventListener('load',()=>{fit();try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}});
-});
-document.getElementById('overview').onclick=()=>setLayout(null);
+  f.addEventListener('load',()=>{fit();try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}res();});
+})));
+$('#overview').onclick=()=>setLayout(null);
 window.addEventListener('resize',fit);
-
-// ---------- Shared transport
+fit();
 const api=id=>{try{return panels.find(p=>p.dataset.id===id).querySelector('iframe').contentWindow.syncAPI;}catch(_){return null;}};
-const chosen=()=>[...document.querySelectorAll('[data-m]')].filter(c=>c.checked).map(c=>c.dataset.m);
-const NAMES={fm1:'FM-1',tb303:'TB-303',tr909:'TR-909'};
-const bpmEl=document.getElementById('syncBpm'),go=document.getElementById('syncGo'),msg=document.getElementById('syncMsg');
-let running=false,t0=0,beatTimer=null;
-const bpm=()=>Math.min(300,Math.max(40,+bpmEl.value||120));
-function applyTempo(){for(const id of chosen()){const a=api(id);if(a)a.setTempo(bpm());}}
-bpmEl.addEventListener('input',()=>{if(+bpmEl.value>=40&&+bpmEl.value<=300)applyTempo();});
-async function startAll(){
-  applyTempo();
-  const abs=performance.timeOrigin+performance.now()+250;
-  const res=await Promise.all(chosen().map(async id=>{const a=api(id);return a?[id,await a.start(abs)]:[id,'absent'];}));
-  running=true;t0=abs;go.textContent='■ Stop all';go.classList.add('on');
-  const blocked=res.filter(r=>r[1]!=='running').map(r=>NAMES[r[0]]);
-  msg.textContent=blocked.length?('Audio blocked by the browser for: '+blocked.join(', ')+' → click once inside that machine, then press Start again.'):'Synced at '+bpm()+' BPM.';
-  clearInterval(beatTimer);beatTimer=setInterval(showBeat,30);
+
+// ---------- Network: one room per URL (?room=), optional external server (?server=wss://host/ws)
+const params=new URLSearchParams(location.search);
+const room=(params.get('room')||'main').slice(0,40);
+const wsBase=params.get('server')||((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+let ws=null,online=false,everOnline=false,offset=0,bestRtt=1e9,clockReady=false,pendingTransport=null;
+const localNow=()=>performance.timeOrigin+performance.now();
+const serverNow=()=>localNow()+offset;
+$('#room').value=room;
+$('#join').onclick=()=>{const r=$('#room').value.trim()||'main';params.set('room',r);location.search=params.toString();};
+$('#invite').onclick=async()=>{const u=new URL(location.href);u.searchParams.set('room',room);
+  try{await navigator.clipboard.writeText(u.toString());$('#netMsg').textContent='Link copied: '+u;}catch(_){$('#netMsg').textContent=u.toString();}};
+function setNet(state,text){$('#netDot').className='dot'+(state==='on'?' on':state==='wait'?' wait':'');$('#netState').textContent=text;}
+const wsend=m=>{if(online)ws.send(JSON.stringify(m));};
+
+function connect(){
+  if(location.protocol==='file:'){setNet('off','Solo (open through the server to play together)');return;}
+  setNet('wait','Connecting…');
+  try{ws=new WebSocket(wsBase+(wsBase.includes('?')?'&':'?')+'room='+encodeURIComponent(room));}catch(_){setNet('off','Solo (no server)');return;}
+  ws.onopen=()=>{online=true;everOnline=true;bestRtt=1e9;
+    for(let i=0;i<6;i++)setTimeout(()=>wsend({t:'ping',c:localNow()}),i*120);};
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}handle(m);};
+  ws.onclose=()=>{online=false;
+    if(everOnline){setNet('wait','Reconnecting…');setTimeout(connect,2500);}
+    else setNet('off','Solo (no multiplayer server here)');};
 }
-function stopAll(){for(const id of ['fm1','tb303','tr909']){const a=api(id);if(a)a.stop();}
+function handle(m){
+  if(m.t==='pong'){const now=localNow(),rtt=now-m.c;
+    if(rtt<bestRtt){bestRtt=rtt;offset=m.s-(m.c+rtt/2);}
+    if(!clockReady){clockReady=true;if(pendingTransport){applyTransport(pendingTransport);pendingTransport=null;}}}
+  else if(m.t==='welcome'){
+    setPeers(m.peers);
+    for(const id of IDS){const s=m.state[id];if(s&&Object.keys(s).length)applyRemote(id,s);else sendFull(id);}
+    if(m.transport){if(clockReady)applyTransport(m.transport);else pendingTransport=m.transport;}
+    else wsend({t:'transport',transport});}
+  else if(m.t==='peers')setPeers(m.n);
+  else if(m.t==='set')applyRemote(m.inst,m.changes);
+  else if(m.t==='note'){const a=api(m.inst);if(a&&a.remoteNote)a.remoteNote(m.msg);}
+  else if(m.t==='transport')applyTransport(m.transport);
+}
+function setPeers(n){setNet('on',`Online · room “${room}” · ${n} player${n>1?'s':''}`);}
+
+// ---------- Shared machine state: poll each machine, send only the knobs/steps that changed
+const flatten=(o,p='',out={})=>{for(const k in o){const v=o[k],key=p?p+'.'+k:k;if(v&&typeof v==='object')flatten(v,key,out);else out[key]=v;}return out;};
+function unflatten(f){const root={};
+  for(const path in f){const ks=path.split('.');let o=root;
+    for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null)o[ks[i]]=/^\d+$/.test(ks[i+1])?[]:{};o=o[ks[i]];}
+    o[ks[ks.length-1]]=f[path];}
+  return root;}
+const lastFlat={};
+function pollInst(id){const a=api(id);if(!a||!a.getState)return;const f=flatten(a.getState()),prev=lastFlat[id];lastFlat[id]=f;
+  if(!prev||!online)return;const ch={};let n=0;for(const k in f)if(f[k]!==prev[k]){ch[k]=f[k];n++;}
+  if(n)wsend({t:'set',inst:id,changes:ch});}
+function sendFull(id){const a=api(id);if(!a||!a.getState)return;lastFlat[id]=flatten(a.getState());wsend({t:'set',inst:id,changes:lastFlat[id]});}
+function applyRemote(id,changes){const a=api(id);if(!a||!a.setState)return;
+  pollInst(id); // flush our own pending edits first so they aren't lost
+  a.setState(unflatten({...(lastFlat[id]||flatten(a.getState())),...changes}));
+  lastFlat[id]=flatten(a.getState());}
+setInterval(()=>{if(online)for(const id of IDS)pollInst(id);},80);
+window.studioHub={note(inst,msg){wsend({t:'note',inst,msg});}};
+
+// ---------- Shared transport: {playing, bpm, startAt (server ms, a bar boundary), inc, run}
+let transport={playing:false,bpm:126,startAt:0,inc:Object.fromEntries(IDS.map(i=>[i,true])),run:0};
+let running=false,t0=0,beatTimer=null,appliedRun=-1;
+const bpmEl=$('#syncBpm'),go=$('#syncGo'),msg=$('#syncMsg');
+const incBoxes=()=>[...document.querySelectorAll('[data-m]')];
+function nextBar(){const bar=240000/transport.bpm;let at=t0;const min=localNow()+200;if(at<min)at+=Math.ceil((min-at)/bar)*bar;return at;}
+async function applyTransport(tr){
+  transport={...transport,...tr,inc:{...transport.inc,...(tr.inc||{})}};
+  bpmEl.value=transport.bpm;incBoxes().forEach(c=>c.checked=transport.inc[c.dataset.m]!==false);
+  for(const id of IDS){const a=api(id);if(a)a.setTempo(transport.bpm);}
+  if(!transport.playing){if(running)stopLocal();return;}
+  t0=transport.startAt-offset;
+  const fresh=!running||appliedRun!==transport.run;appliedRun=transport.run;
+  const at=nextBar(),res=[];
+  for(const id of IDS){const a=api(id);if(!a)continue;
+    if(transport.inc[id]===false){if(a.playing)a.stop();}
+    else if(fresh||!a.playing)res.push(a.start(at).then(s=>[id,s]));}
+  running=true;go.textContent='■ Stop all';go.classList.add('on');
+  clearInterval(beatTimer);beatTimer=setInterval(showBeat,30);
+  const blocked=(await Promise.all(res)).filter(r=>r[1]!=='running').map(r=>r[0].toUpperCase());
+  msg.textContent=blocked.length?('Sound blocked by the browser for '+blocked.join(', ')+': click once anywhere on the page, then press Start again.'):'Synced at '+transport.bpm+' BPM.';
+}
+function stopLocal(){for(const id of IDS){const a=api(id);if(a&&a.playing)a.stop();}
   running=false;go.textContent='▶ Start all';go.classList.remove('on');clearInterval(beatTimer);
   document.querySelectorAll('.beat').forEach(b=>b.classList.remove('on'));msg.textContent='Stopped.';}
-go.onclick=()=>running?stopAll():startAll();
-function showBeat(){const el=(performance.timeOrigin+performance.now()-t0)/1000;const b=el<0?-1:Math.floor(el*bpm()/60)%4;
+function share(tr){applyTransport(tr);wsend({t:'transport',transport});}
+go.onclick=()=>share(running?{playing:false}:{playing:true,startAt:serverNow()+250,run:Math.random()});
+function setBpm(v){if(!(v>=40&&v<=300))return;
+  // keep the bar grid continuous across the tempo change so late joiners land on the downbeat
+  let startAt=transport.startAt;if(running){const T=serverNow(),beats=(T-startAt)*transport.bpm/60000;startAt=T-beats*60000/v;}
+  share({bpm:v,startAt});}
+bpmEl.addEventListener('input',()=>setBpm(+bpmEl.value));
+incBoxes().forEach(c=>c.addEventListener('change',()=>share({inc:{[c.dataset.m]:c.checked}})));
+function showBeat(){const el=(localNow()-t0)/1000;const b=el<0?-1:Math.floor(el*transport.bpm/60)%4;
   document.querySelectorAll('.beat').forEach((x,i)=>x.classList.toggle('on',i===b));}
 let taps=[];
-document.getElementById('tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500);taps.push(n);
-  if(taps.length>=2){const d=(taps[taps.length-1]-taps[0])/(taps.length-1);bpmEl.value=Math.round(60000/d);applyTempo();}};
-// a machine's own Start keeps working; restarting from here re-aligns everything
+$('#tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500);taps.push(n);
+  if(taps.length>=2){const d=(taps[taps.length-1]-taps[0])/(taps.length-1);setBpm(Math.round(60000/d));}};
 window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();go.click();}});
-fit();
+
+ready.then(()=>{for(const id of IDS){const a=api(id);if(a&&a.getState)lastFlat[id]=flatten(a.getState());}connect();});
 </script>
 </body>
 </html>

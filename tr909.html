@@ -214,9 +214,12 @@ const DEFAULT_PATS=[
  blank()
 ];
 const defP=()=>Object.fromEntries(INST.map(i=>[i.id,{tune:.5,lvl:.7,x:.5,dec:.5,...Object.fromEntries(i.k.map(k=>[k[0],k[2]]))}]));
-let st={P:defP(),mute:{},bpm:126,shuffle:0,acc:.6,vol:.8,pats:JSON.parse(JSON.stringify(DEFAULT_PATS)),bank:0};
-try{const sv=JSON.parse(localStorage.getItem('rhythm909')||'null');if(sv&&sv.pats&&sv.P)st={...st,...sv};}catch(_){}
-const save=()=>{try{localStorage.setItem('rhythm909',JSON.stringify(st));}catch(_){}};
+// Row in the studio (?slot=a|b): row B starts on the empty pattern D and keeps its own saved session
+const SLOT=new URLSearchParams(location.search).get('slot')||'a', MYID='tr909-'+SLOT, SKEY='rhythm909'+(SLOT==='a'?'':':'+SLOT);
+const hubNote=m=>{try{if(window.parent!==window&&window.parent.studioHub)window.parent.studioHub.note(MYID,m);}catch(_){}};
+let st={P:defP(),mute:{},bpm:126,shuffle:0,acc:.6,vol:.8,pats:JSON.parse(JSON.stringify(DEFAULT_PATS)),bank:SLOT==='a'?0:3};
+try{const sv=JSON.parse(localStorage.getItem(SKEY)||'null');if(sv&&sv.pats&&sv.P)st={...st,...sv};}catch(_){}
+const save=()=>{try{localStorage.setItem(SKEY,JSON.stringify(st));}catch(_){}};
 const pat=()=>st.pats[st.bank];
 let ctx=null,node=null,audioP=null,playing=false,rec=false,curStep=-1;
 
@@ -236,10 +239,11 @@ function ensureAudio(){
 const send=m=>node&&node.port.postMessage(m);
 function sendP(){send({type:'p',P:st.P,mute:st.mute,bpm:st.bpm,shuffle:st.shuffle,acc:st.acc,vol:st.vol});save();}
 function sendPat(){send({type:'pat',pat:pat()});save();}
-function hit(id,v=.8){ensureAudio().then(()=>{send({type:'hit',id,v});
+function hit(id,v=.8){hubNote({id,v});ensureAudio().then(()=>{send({type:'hit',id,v});
   if(rec&&playing&&curStep>=0){pat()[id][curStep]=1;sendPat();renderGrid();}});}
 
 // ---------- Knobs
+const kUpd=[];
 function knob(host,label,get,set,def,fmt=v=>Math.round(v*100)){
   const el=document.createElement('div');el.className='kn';el.innerHTML='<div class="dial"><i></i></div><b>'+label+'</b><span></span>';host.appendChild(el);
   const dial=el.querySelector('.dial'),ptr=el.querySelector('i'),txt=el.querySelector('span');
@@ -251,7 +255,7 @@ function knob(host,label,get,set,def,fmt=v=>Math.round(v*100)){
   dial.addEventListener('pointerup',()=>drag=null);dial.addEventListener('pointercancel',()=>drag=null);
   dial.addEventListener('dblclick',()=>put(def));
   dial.addEventListener('wheel',e=>{e.preventDefault();put(get()-Math.sign(e.deltaY)*.02);},{passive:false});
-  upd();
+  upd();kUpd.push(upd);
 }
 const strips=$('#strips');
 INST.forEach(ins=>{const s=document.createElement('div');s.className='strip'+(ins.k.length===1?' one':'');
@@ -330,7 +334,16 @@ window.syncAPI={
   async start(abs){await ensureAudio();playing=true;send({type:'play',f:Math.round(ctxTimeAt(abs)*ctx.sampleRate)});$('#play').textContent=playing?'■ Stop':'▶ Start',$('#play').classList.toggle('on',playing);return ctx.state;},
   stop(){if(playing){playing=false;send({type:'stop'});$('#play').textContent=playing?'■ Stop':'▶ Start',$('#play').classList.toggle('on',playing);curStep=-1;renderCur();}},
   setTempo(b){st.bpm=b;$('#bpm').value=b;sendP();},
-  get tempo(){return st.bpm;},get playing(){return playing;},state(){return ctx?ctx.state:'off';}
+  get tempo(){return st.bpm;},get playing(){return playing;},state(){return ctx?ctx.state:'off';},
+  getState(){return JSON.parse(JSON.stringify({P:st.P,mute:st.mute,shuffle:st.shuffle,acc:st.acc,vol:st.vol,pats:st.pats,bank:st.bank}));},
+  setState(s){
+    if(s.P)for(const id in s.P)Object.assign(st.P[id]||(st.P[id]={}),s.P[id]);
+    st.mute=s.mute||{};
+    for(const k of ['shuffle','acc','vol'])if(s[k]!=null)st[k]=s[k];
+    if(s.pats)st.pats=[0,1,2,3].map(i=>Object.fromEntries(ROWS.map(r=>[r,Array.from({length:16},(_,j)=>((s.pats[i]||{})[r]||[])[j]?1:0)])));
+    if(s.bank!=null)st.bank=s.bank;
+    $('#shuffle').value=st.shuffle;kUpd.forEach(f=>f());renderBanks();renderGrid();sendP();sendPat();},
+  remoteNote(m){if(node)send({type:'hit',id:m.id,v:m.v});}
 };
 
 renderBanks();renderGrid();
