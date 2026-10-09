@@ -44,6 +44,14 @@ input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var
 .ph b{font-size:13px;letter-spacing:.08em}
 .ph em{font-style:normal;font-size:11px;font-weight:800;padding:1px 7px;border-radius:6px;background:var(--accent);color:var(--onink);margin-left:6px}
 .ph button{padding:3px 9px;font-size:13px}
+.ph .hb{display:flex;gap:4px}
+.ph .pp{min-width:34px;font-weight:700}
+.ph .pp.on{background:#2fa84f;border-color:#2fa84f;color:#fff}
+.ph .rm{opacity:.7}
+.addtile{order:999;border:2px dashed rgba(127,127,127,.45);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;min-height:140px;color:var(--muted)}
+.addtile div{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.addtile button{font-weight:700}
+.stage.focus .addtile{grid-column:2}
 .frame{position:relative;overflow:hidden;border-radius:10px}
 .frame iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:transparent}
 .shield{position:absolute;inset:0;display:none;cursor:zoom-in;background:rgba(0,0,0,0);transition:background .15s}
@@ -68,57 +76,74 @@ input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var
   <button id="syncGo">▶ Start all</button>
   <label>Tempo <input type="number" id="syncBpm" min="40" max="300" value="126"> BPM</label>
   <button id="tapBtn" title="Tap at least twice in time">Tap</button>
-  <span class="inc" id="incA"><span>A</span></span>
-  <span class="inc" id="incB"><span>B</span></span>
   <span style="display:flex;gap:4px"><i class="beat"></i><i class="beat"></i><i class="beat"></i><i class="beat"></i></span>
-  <span id="syncMsg">Start launches every checked machine on the same downbeat.</span>
+  <span id="syncMsg">Start all launches every machine on the same downbeat; ▶ on a machine starts just that one.</span>
 </div>
 <div class="bar">
   <button id="overview">▦ Overview</button>
   <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard plays the machine you clicked last.</span>
 </div>
-<div class="stage overview" id="stage"></div>
+<div class="stage overview" id="stage">
+  <div class="addtile" id="addTile"><span>Add a machine</span><div><button data-add="fm1">+ FM-1</button><button data-add="tb303">+ TB-303</button><button data-add="tr909">+ TR-909</button></div></div>
+</div>
 <script>
 const $=s=>document.querySelector(s);
-const MACHINES=[['fm1','FM-1','fm1.html'],['tb303','TB-303 / TD-3','tb303.html'],['tr909','TR-909','tr909.html']];
-const SLOTS=['a','b'];
-const IDS=[];
+const TYPES={fm1:['FM-1','fm1.html'],tb303:['TB-303 / TD-3','tb303.html'],tr909:['TR-909','tr909.html']};
+const DEFAULT_MACHINES=['fm1-a','tb303-a','tr909-a'];
+const DW=1220, stage=$('#stage');
+let panels=[], focused=null;
+const api=id=>{try{return panels.find(p=>p.dataset.id===id).querySelector('iframe').contentWindow.syncAPI;}catch(_){return null;}};
+const loaded=id=>{const p=panels.find(p=>p.dataset.id===id);return !!(p&&p.dataset.loaded&&api(id));};
 
 // ---------- Panels: each machine renders at full design width in an iframe, scaled to its panel
-const DW=1220, stage=$('#stage');
-for(const sl of SLOTS) for(const [m,name,src] of MACHINES){
-  const id=m+'-'+sl;IDS.push(id);
-  const p=document.createElement('div');p.className='panel';p.dataset.id=id;p.style.setProperty('--vt','p-'+id);
-  p.innerHTML=`<div class="ph"><b>${name}<em>${sl.toUpperCase()}</em></b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="${src}?slot=${sl}" title="${name} ${sl.toUpperCase()}"></iframe><div class="shield"></div></div>`;
-  stage.appendChild(p);
-  const box=$('#inc'+sl.toUpperCase()),lab=document.createElement('label');
-  lab.innerHTML=`<input type="checkbox" data-m="${id}" checked>${name.split(' ')[0]}`;box.appendChild(lab);
-}
-const panels=[...document.querySelectorAll('.panel')];
-let focused=null;
 function contentHeight(f){try{const b=f.contentDocument.body;const cs=getComputedStyle(b);
   return Math.ceil(b.getBoundingClientRect().height+parseFloat(cs.marginTop)+parseFloat(cs.marginBottom));}catch(_){return 900;}}
 function fit(){for(const p of panels){const fr=p.querySelector('.frame'),f=fr.querySelector('iframe');
   const s=Math.min(1,fr.clientWidth/DW),h=Math.max(300,contentHeight(f));
   f.style.width=DW+'px';f.style.height=h+'px';f.style.transform='scale('+s+')';fr.style.height=Math.ceil(h*s)+'px';}}
 function setLayout(id){
+  if(id&&!panels.some(p=>p.dataset.id===id))id=null;
   const run=()=>{focused=id;stage.classList.toggle('overview',!id);stage.classList.toggle('focus',!!id);
-    panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.ph button').textContent=p.dataset.id===id?'⤡':'⤢';});
+    panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.zoom').textContent=p.dataset.id===id?'⤡':'⤢';});
     // reorder with CSS only: moving an iframe in the DOM would reload it and stop the machine
-    panels.forEach((p,i)=>p.style.order=p.dataset.id===id?-1:i);
+    const order=transport.machines;panels.forEach(p=>p.style.order=p.dataset.id===id?-1:order.indexOf(p.dataset.id));
     fit();};
   document.startViewTransition?document.startViewTransition(run):run();
 }
-const ready=Promise.all(panels.map(p=>new Promise(res=>{
-  p.querySelector('.ph').addEventListener('click',()=>setLayout(focused===p.dataset.id?null:p.dataset.id));
-  p.querySelector('.shield').addEventListener('click',()=>setLayout(p.dataset.id));
+function addPanel(id){
+  const [type,slot]=id.split('-'),[name,src]=TYPES[type];
+  const p=document.createElement('div');p.className='panel';p.dataset.id=id;p.style.setProperty('--vt','p-'+id);
+  p.innerHTML=`<div class="ph"><b>${name}<em>${slot.toUpperCase()}</em></b><span class="hb">
+    <button class="pp" title="Play / stop this machine">▶</button><button class="zoom" title="Enlarge">⤢</button><button class="rm" title="Remove this machine">×</button></span></div>
+    <div class="frame"><iframe src="${src}?slot=${slot}" title="${name} ${slot.toUpperCase()}"></iframe><div class="shield"></div></div>`;
+  stage.insertBefore(p,$('#addTile'));panels.push(p);
+  p.querySelector('.ph').addEventListener('click',()=>setLayout(focused===id?null:id));
+  p.querySelector('.shield').addEventListener('click',()=>setLayout(id));
+  p.querySelector('.pp').addEventListener('click',e=>{e.stopPropagation();toggleMachine(id);});
+  p.querySelector('.rm').addEventListener('click',e=>{e.stopPropagation();share({machines:transport.machines.filter(m=>m!==id)});});
+  p.querySelector('.zoom').addEventListener('click',e=>{e.stopPropagation();setLayout(focused===id?null:id);});
   const f=p.querySelector('iframe');
-  f.addEventListener('load',()=>{fit();try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}res();});
-})));
+  return new Promise(res=>f.addEventListener('load',()=>{p.dataset.loaded=1;fit();
+    try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}
+    onPanelLoaded(id);res();},{once:true}));
+}
+function removePanel(id){const p=panels.find(p=>p.dataset.id===id);if(!p)return;
+  const a=api(id);if(a&&a.playing)a.stop();
+  panels=panels.filter(x=>x!==p);p.remove();delete lastFlat[id];
+  if(focused===id)setLayout(null);fit();}
+function syncPanels(){
+  for(const p of [...panels])if(!transport.machines.includes(p.dataset.id))removePanel(p.dataset.id);
+  const adds=transport.machines.filter(id=>TYPES[id.split('-')[0]]&&!panels.some(p=>p.dataset.id===id)).map(addPanel);
+  setLayout(focused);
+  try{localStorage.setItem('studioMachines',JSON.stringify(transport.machines));}catch(_){}
+  return Promise.all(adds);
+}
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+  const type=b.dataset.add,used=transport.machines.filter(m=>m.startsWith(type+'-')).map(m=>m.split('-')[1]);
+  const slot='abcdefghij'.split('').find(s=>!used.includes(s));if(!slot)return;
+  const id=type+'-'+slot;share({machines:[...transport.machines,id],inc:{[id]:false}});});
 $('#overview').onclick=()=>setLayout(null);
 window.addEventListener('resize',fit);
-fit();
-const api=id=>{try{return panels.find(p=>p.dataset.id===id).querySelector('iframe').contentWindow.syncAPI;}catch(_){return null;}};
 
 // ---------- Network: one room per URL (?room=), optional external server (?server=wss://host/ws)
 const params=new URLSearchParams(location.search);
@@ -151,11 +176,13 @@ function handle(m){
     if(!clockReady){clockReady=true;if(pendingTransport){applyTransport(pendingTransport);pendingTransport=null;}}}
   else if(m.t==='welcome'){
     setPeers(m.peers);
-    for(const id of IDS){const s=m.state[id];if(s&&Object.keys(s).length)applyRemote(id,s);else sendFull(id);}
+    for(const p of panels){const id=p.dataset.id,s=m.state[id];if(!loaded(id))continue;
+      if(s&&Object.keys(s).length)applyRemote(id,s);else sendFull(id);}
     if(m.transport){if(clockReady)applyTransport(m.transport);else pendingTransport=m.transport;}
     else wsend({t:'transport',transport});}
   else if(m.t==='peers')setPeers(m.n);
   else if(m.t==='set')applyRemote(m.inst,m.changes);
+  else if(m.t==='state'){if(m.state&&Object.keys(m.state).length)applyRemote(m.inst,m.state);else sendFull(m.inst);}
   else if(m.t==='note'){const a=api(m.inst);if(a&&a.remoteNote)a.remoteNote(m.msg);}
   else if(m.t==='transport')applyTransport(m.transport);
 }
@@ -169,50 +196,65 @@ function unflatten(f){const root={};
     o[ks[ks.length-1]]=f[path];}
   return root;}
 const lastFlat={};
-function pollInst(id){const a=api(id);if(!a||!a.getState)return;const f=flatten(a.getState()),prev=lastFlat[id];lastFlat[id]=f;
+function pollInst(id){if(!loaded(id))return;const a=api(id);if(!a.getState)return;const f=flatten(a.getState()),prev=lastFlat[id];lastFlat[id]=f;
   if(!prev||!online)return;const ch={};let n=0;for(const k in f)if(f[k]!==prev[k]){ch[k]=f[k];n++;}
   if(n)wsend({t:'set',inst:id,changes:ch});}
-function sendFull(id){const a=api(id);if(!a||!a.getState)return;lastFlat[id]=flatten(a.getState());wsend({t:'set',inst:id,changes:lastFlat[id]});}
-function applyRemote(id,changes){const a=api(id);if(!a||!a.setState)return;
+function sendFull(id){if(!loaded(id))return;lastFlat[id]=flatten(api(id).getState());wsend({t:'set',inst:id,changes:lastFlat[id]});}
+function applyRemote(id,changes){if(!loaded(id))return;const a=api(id);
   pollInst(id); // flush our own pending edits first so they aren't lost
   a.setState(unflatten({...(lastFlat[id]||flatten(a.getState())),...changes}));
   lastFlat[id]=flatten(a.getState());}
-setInterval(()=>{if(online)for(const id of IDS)pollInst(id);},80);
+setInterval(()=>{if(online)for(const p of panels)pollInst(p.dataset.id);},80);
 window.studioHub={note(inst,msg){wsend({t:'note',inst,msg});},toggle(){go.click();}};
 
-// ---------- Shared transport: {playing, bpm, startAt (server ms, a bar boundary), inc, run}
-let transport={playing:false,bpm:126,startAt:0,inc:Object.fromEntries(IDS.map(i=>[i,true])),run:0};
+// ---------- Shared transport: {playing, bpm, startAt (server ms, a bar boundary), inc (machines playing), run, machines}
+let savedMachines=null;try{savedMachines=JSON.parse(localStorage.getItem('studioMachines')||'null');}catch(_){}
+let transport={playing:false,bpm:126,startAt:0,inc:{},run:0,machines:Array.isArray(savedMachines)&&savedMachines.length?savedMachines:DEFAULT_MACHINES};
 let running=false,t0=0,beatTimer=null,appliedRun=-1;
 const bpmEl=$('#syncBpm'),go=$('#syncGo'),msg=$('#syncMsg');
-const incBoxes=()=>[...document.querySelectorAll('[data-m]')];
+const isOn=id=>transport.inc[id]!==false;
 function nextBar(){const bar=240000/transport.bpm;let at=t0;const min=localNow()+200;if(at<min)at+=Math.ceil((min-at)/bar)*bar;return at;}
+function updateHeads(){for(const p of panels){const b=p.querySelector('.pp'),on=running&&isOn(p.dataset.id);
+  b.textContent=on?'■':'▶';b.classList.toggle('on',on);}}
 async function applyTransport(tr){
   transport={...transport,...tr,inc:{...transport.inc,...(tr.inc||{})}};
-  bpmEl.value=transport.bpm;incBoxes().forEach(c=>c.checked=transport.inc[c.dataset.m]!==false);
-  for(const id of IDS){const a=api(id);if(a)a.setTempo(transport.bpm);}
-  if(!transport.playing){if(running)stopLocal();return;}
+  bpmEl.value=transport.bpm;
+  await syncPanels();
+  for(const p of panels){const a=api(p.dataset.id);if(a)a.setTempo(transport.bpm);}
+  if(!transport.playing){if(running)stopLocal();updateHeads();return;}
   t0=transport.startAt-offset;
   const fresh=!running||appliedRun!==transport.run;appliedRun=transport.run;
   const at=nextBar(),res=[];
-  for(const id of IDS){const a=api(id);if(!a)continue;
-    if(transport.inc[id]===false){if(a.playing)a.stop();}
+  for(const p of panels){const id=p.dataset.id;if(!loaded(id))continue;const a=api(id);
+    if(!isOn(id)){if(a.playing)a.stop();}
     else if(fresh||!a.playing)res.push(a.start(at).then(s=>[id,s]));}
-  running=true;go.textContent='■ Stop all';go.classList.add('on');
+  running=true;go.textContent='■ Stop all';go.classList.add('on');updateHeads();
   clearInterval(beatTimer);beatTimer=setInterval(showBeat,30);
   const blocked=(await Promise.all(res)).filter(r=>r[1]!=='running').map(r=>r[0].toUpperCase());
   msg.textContent=blocked.length?('Sound blocked by the browser for '+blocked.join(', ')+': click once anywhere on the page, then press Start again.'):'Synced at '+transport.bpm+' BPM.';
 }
-function stopLocal(){for(const id of IDS){const a=api(id);if(a&&a.playing)a.stop();}
-  running=false;go.textContent='▶ Start all';go.classList.remove('on');clearInterval(beatTimer);
+function onPanelLoaded(id){const a=api(id);if(!a)return;
+  a.setTempo(transport.bpm);lastFlat[id]=flatten(a.getState());
+  if(online)wsend({t:'get',inst:id});
+  if(running&&isOn(id))a.start(nextBar());
+  updateHeads();}
+function stopLocal(){for(const p of panels){const a=api(p.dataset.id);if(a&&a.playing)a.stop();}
+  running=false;go.textContent='▶ Start all';go.classList.remove('on');clearInterval(beatTimer);updateHeads();
   document.querySelectorAll('.beat').forEach(b=>b.classList.remove('on'));msg.textContent='Stopped.';}
 function share(tr){applyTransport(tr);wsend({t:'transport',transport});}
-go.onclick=()=>share(running?{playing:false}:{playing:true,startAt:serverNow()+250,run:Math.random()});
+const allOn=()=>Object.fromEntries(transport.machines.map(m=>[m,true]));
+go.onclick=()=>share(running?{playing:false}:{playing:true,startAt:serverNow()+250,run:Math.random(),inc:allOn()});
+function toggleMachine(id){
+  if(running&&isOn(id)){const inc={...transport.inc,[id]:false};
+    share(transport.machines.some(m=>inc[m]!==false)?{inc}:{inc,playing:false});}
+  else if(running)share({inc:{[id]:true}});
+  else share({playing:true,startAt:serverNow()+250,run:Math.random(),inc:Object.fromEntries(transport.machines.map(m=>[m,m===id]))});
+}
 function setBpm(v){if(!(v>=40&&v<=300))return;
   // keep the bar grid continuous across the tempo change so late joiners land on the downbeat
   let startAt=transport.startAt;if(running){const T=serverNow(),beats=(T-startAt)*transport.bpm/60000;startAt=T-beats*60000/v;}
   share({bpm:v,startAt});}
 bpmEl.addEventListener('input',()=>setBpm(+bpmEl.value));
-incBoxes().forEach(c=>c.addEventListener('change',()=>share({inc:{[c.dataset.m]:c.checked}})));
 function showBeat(){const el=(localNow()-t0)/1000;const b=el<0?-1:Math.floor(el*transport.bpm/60)%4;
   document.querySelectorAll('.beat').forEach((x,i)=>x.classList.toggle('on',i===b));}
 let taps=[];
@@ -220,7 +262,7 @@ $('#tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500
   if(taps.length>=2){const d=(taps[taps.length-1]-taps[0])/(taps.length-1);setBpm(Math.round(60000/d));}};
 window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();go.click();}});
 
-ready.then(()=>{for(const id of IDS){const a=api(id);if(a&&a.getState)lastFlat[id]=flatten(a.getState());}connect();});
+syncPanels().then(connect);
 </script>
 </body>
 </html>

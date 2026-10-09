@@ -53,6 +53,9 @@ async def ws_handler(request):
                 inst = str(m.get("inst"))[:20]
                 room["state"].setdefault(inst, {}).update(m["changes"])
                 await broadcast(room, {"t": "set", "inst": inst, "changes": m["changes"]}, skip=ws)
+            elif t == "get":
+                inst = str(m.get("inst"))[:20]
+                await ws.send_str(json.dumps({"t": "state", "inst": inst, "state": room["state"].get(inst, {})}))
             elif t == "note":
                 await broadcast(room, {"t": "note", "inst": m.get("inst"), "msg": m.get("msg")}, skip=ws)
             elif t == "transport" and isinstance(m.get("transport"), dict):
