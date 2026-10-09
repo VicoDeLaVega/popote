@@ -11,6 +11,8 @@ Plain HTML + JavaScript in the browser (sound generated live with the Web Audio 
 | `tr909.html` | **TR-909** style drum machine: 11 synthesized instruments, accent row, shuffle, live recording. |
 
 `skins.js` holds the six shared colour skins (picker in the top-right corner of every page).
+`visuals.js` draws audio-reactive cyberpunk fractal worlds (WebGL) behind the studio: three worlds that switch every 8 bars,
+deformed by the bass and lit by the highs. **⛶ VJ mode** hides the machines and shows only the visuals (Esc to come back).
 
 ## Playing together
 

@@ -344,6 +344,11 @@ window.syncAPI={
     if(s.pats)st.pats=[0,1,2,3].map(i=>Object.fromEntries(ROWS.map(r=>[r,Array.from({length:16},(_,j)=>((s.pats[i]||{})[r]||[])[j]?1:0)])));
     if(s.bank!=null)st.bank=s.bank;
     $('#shuffle').value=st.shuffle;kUpd.forEach(f=>f());renderBanks();renderGrid();sendP();sendPat();},
+  levels(){if(!ctx||!node)return null;
+    if(!this._an){this._an=ctx.createAnalyser();this._an.fftSize=512;this._an.smoothingTimeConstant=.5;this._an.minDecibels=-80;this._an.maxDecibels=-5;node.connect(this._an);this._buf=new Uint8Array(256);}
+    const b=this._buf,hz=ctx.sampleRate/512;this._an.getByteFrequencyData(b);
+    const avg=(lo,hi)=>{let s=0,n=0;for(let i=Math.max(1,Math.floor(lo/hz));i<=Math.min(255,Math.floor(hi/hz));i++){s+=b[i];n++;}return n?s/n/255:0;};
+    return [avg(30,160),avg(160,2000),avg(2000,10000)];},
   remoteNote(m){if(node)send({type:'hit',id:m.id,v:m.v});}
 };
 

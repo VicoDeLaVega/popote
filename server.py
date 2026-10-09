@@ -79,7 +79,7 @@ def make_app():
     app = web.Application()
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/", index)
-    for f in ("index.html", "fm1.html", "tb303.html", "tr909.html", "skins.js"):
+    for f in ("index.html", "fm1.html", "tb303.html", "tr909.html", "skins.js", "visuals.js"):
         app.router.add_get("/" + f, lambda r, f=f: web.FileResponse(ROOT / f))
     return app
 

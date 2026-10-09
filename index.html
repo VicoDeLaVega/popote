@@ -52,6 +52,18 @@ input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var
 .addtile div{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .addtile button{font-weight:700}
 .stage.focus .addtile{grid-column:2}
+/* visuals on: let the fractal background show through the studio chrome */
+html.fx{background:#05010a}
+html.fx body{background:transparent}
+html.fx .strip,html.fx .bar{background:rgba(8,4,22,.62);color:#ece8ff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:12px;padding:8px 12px}
+html.fx .bar .hint,html.fx #syncMsg,html.fx #netMsg{color:#b9b2d8}
+html.fx .panel{background:rgba(8,4,22,.42);color:#ece8ff}
+html.fx nav.tabs a:not(.cur),html.fx .skinpick{color:#ece8ff!important}
+html.fx .addtile{border-color:rgba(200,180,255,.45);color:#d8d0ff;background:rgba(8,4,22,.35)}
+#fxBtn.on{background:linear-gradient(90deg,#ff2bd6,#22e4ff);color:#fff;border-color:transparent}
+#vjExit{display:none;position:fixed;top:14px;right:14px;z-index:10;background:rgba(8,4,22,.6);color:#fff;border:1px solid rgba(255,255,255,.3)}
+html.vj body>*:not(#fx):not(#vjExit):not(script){opacity:0;pointer-events:none}
+html.vj #vjExit{display:block}
 .frame{position:relative;overflow:hidden;border-radius:10px}
 .frame iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:transparent}
 .shield{position:absolute;inset:0;display:none;cursor:zoom-in;background:rgba(0,0,0,0);transition:background .15s}
@@ -81,6 +93,9 @@ input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var
 </div>
 <div class="bar">
   <button id="overview">▦ Overview</button>
+  <button id="fxBtn" title="Audio-reactive fractal worlds in the background">🌌 Visuals: on</button>
+  <button id="fxNext" title="Jump to the next world">⟳ Next world</button>
+  <button id="fxVj" title="Hide the machines and show only the visuals (Esc to come back)">⛶ VJ mode</button>
   <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard plays the machine you clicked last.</span>
 </div>
 <div class="stage overview" id="stage">
@@ -263,6 +278,15 @@ $('#tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500
 window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();go.click();}});
 
 syncPanels().then(connect);
+</script>
+<button id="vjExit" title="Back to the machines (Esc)">✕ Exit VJ mode</button>
+<script src="visuals.js"></script>
+<script>
+$('#fxBtn').onclick=()=>studioFx.toggle();
+$('#fxNext').onclick=()=>studioFx.next();
+$('#fxVj').onclick=()=>studioFx.vj(true);
+$('#vjExit').onclick=()=>studioFx.vj(false);
+addEventListener('keydown',e=>{if(e.key==='Escape')studioFx.vj(false);});
 </script>
 </body>
 </html>
