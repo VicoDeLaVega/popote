@@ -415,6 +415,8 @@ const CODE_MAP={KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,KeyY:8,K
 const codeDown={};
 window.addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
+  if(e.code==='Space'&&!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){e.preventDefault();const studio=(()=>{try{return window.parent!==window&&window.parent.studioHub;}catch(_){return null;}})();
+    if(studio)studio.toggle();else $('#seqPlay').click();return;}
   if(e.code==='KeyZ'){setOct(octave-1);return;}
   if(e.code==='KeyX'){setOct(octave+1);return;}
   if(!(e.code in CODE_MAP)) return;

@@ -344,7 +344,8 @@ const CODE_MAP={KeyA:0,KeyW:1,KeyS:2,KeyE:3,KeyD:4,KeyF:5,KeyT:6,KeyG:7,KeyY:8,K
 const codes={};
 window.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
   if(e.target.tagName==='INPUT'&&e.target.type==='number')return;
-  if(e.code==='Space'){e.preventDefault();togglePlay();return;}
+  if(e.code==='Space'){e.preventDefault();const studio=(()=>{try{return window.parent!==window&&window.parent.studioHub;}catch(_){return null;}})();
+    if(studio)studio.toggle();else togglePlay();return;}
   if(!(e.code in CODE_MAP))return;e.preventDefault();codes[e.code]=CODE_MAP[e.code];noteDown(CODE_MAP[e.code]);});
 window.addEventListener('keyup',e=>{if(codes[e.code]!=null){noteUp(codes[e.code]);delete codes[e.code];}});
 const setOct=o=>{kbOct=Math.max(-1,Math.min(1,o));$('#oV').textContent='Oct '+(kbOct>0?'+':'')+kbOct;};

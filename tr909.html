@@ -323,7 +323,8 @@ $('#rnd').onclick=()=>{
 const KEYS={KeyA:'BD',KeyS:'SD',KeyD:'LT',KeyF:'MT',KeyG:'HT',KeyH:'RS',KeyJ:'CP',KeyK:'CH',KeyL:'OH',Semicolon:'CR',Quote:'RD'};
 window.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;
   if(e.target.tagName==='INPUT'&&e.target.type==='number')return;
-  if(e.code==='Space'){e.preventDefault();togglePlay();return;}
+  if(e.code==='Space'){e.preventDefault();const studio=(()=>{try{return window.parent!==window&&window.parent.studioHub;}catch(_){return null;}})();
+    if(studio)studio.toggle();else togglePlay();return;}
   if(KEYS[e.code]){e.preventDefault();hit(KEYS[e.code],e.shiftKey?1:.8);}});
 
 // ---------- Studio sync: the studio page calls window.syncAPI to share tempo and start every machine on the same instant

@@ -104,8 +104,8 @@ function fit(){for(const p of panels){const fr=p.querySelector('.frame'),f=fr.qu
 function setLayout(id){
   const run=()=>{focused=id;stage.classList.toggle('overview',!id);stage.classList.toggle('focus',!!id);
     panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.ph button').textContent=p.dataset.id===id?'⤡':'⤢';});
-    if(id) stage.prepend(panels.find(p=>p.dataset.id===id));
-    else panels.forEach(p=>stage.appendChild(p));
+    // reorder with CSS only: moving an iframe in the DOM would reload it and stop the machine
+    panels.forEach((p,i)=>p.style.order=p.dataset.id===id?-1:i);
     fit();};
   document.startViewTransition?document.startViewTransition(run):run();
 }
@@ -178,7 +178,7 @@ function applyRemote(id,changes){const a=api(id);if(!a||!a.setState)return;
   a.setState(unflatten({...(lastFlat[id]||flatten(a.getState())),...changes}));
   lastFlat[id]=flatten(a.getState());}
 setInterval(()=>{if(online)for(const id of IDS)pollInst(id);},80);
-window.studioHub={note(inst,msg){wsend({t:'note',inst,msg});}};
+window.studioHub={note(inst,msg){wsend({t:'note',inst,msg});},toggle(){go.click();}};
 
 // ---------- Shared transport: {playing, bpm, startAt (server ms, a bar boundary), inc, run}
 let transport={playing:false,bpm:126,startAt:0,inc:Object.fromEntries(IDS.map(i=>[i,true])),run:0};
