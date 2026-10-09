@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Synth Studio</title>
+<script src="skins.js"></script>
+<style>
+:root{ --bg:#d9d6cf; --ink:#1d1f23; --muted:#5d6168; --accent:#ff6a2b; --onink:#fff; --btn:#f6f7f8; --line:#a9aeb5; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#101114; --ink:#e8e8e8; --muted:#9a9a9a; --btn:#2a2c31; --line:#44474e; } }
+:root[data-theme="dark"]{ --bg:#101114; --ink:#e8e8e8; --muted:#9a9a9a; --btn:#2a2c31; --line:#44474e; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px}
+nav.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+nav.tabs a{padding:8px 16px;border-radius:10px 10px 0 0;background:rgba(127,127,127,.25);color:inherit;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.06em}
+nav.tabs a.cur{background:var(--accent);color:var(--onink)}
+button,select{font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.bar .hint{font-size:12px;color:var(--muted)}
+.sync{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;margin-bottom:12px;border-radius:12px;background:rgba(127,127,127,.16)}
+.sync b{font-size:12px;letter-spacing:.1em}
+.sync label{display:flex;align-items:center;gap:5px;font-size:13px}
+.sync input[type=number]{width:64px;font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+#syncGo{background:var(--accent);color:var(--onink);border-color:var(--accent);font-weight:700;padding:6px 14px}
+#syncGo.on{background:#2fa84f;border-color:#2fa84f}
+#syncMsg{font-size:12px;color:var(--muted)}
+.beat{width:12px;height:12px;border-radius:50%;background:rgba(127,127,127,.35)}
+.beat.on{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.stage{display:grid;gap:14px;align-items:start}
+.stage.overview{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stage.focus{grid-template-columns:minmax(0,3.2fr) minmax(0,1fr)}
+.stage.focus .panel.big{grid-column:1;grid-row:1 / span 2}
+.stage.focus .panel:not(.big){grid-column:2}
+.panel{border-radius:14px;background:rgba(127,127,127,.14);padding:8px;view-transition-name:var(--vt);min-width:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 8px;cursor:pointer;user-select:none}
+.ph b{font-size:13px;letter-spacing:.08em}
+.ph button{padding:3px 9px;font-size:13px}
+.frame{position:relative;overflow:hidden;border-radius:10px}
+.frame iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:transparent}
+.shield{position:absolute;inset:0;display:none;cursor:zoom-in;background:rgba(0,0,0,0);transition:background .15s}
+.shield:hover{background:rgba(255,255,255,.08)}
+.stage.focus .panel:not(.big) .shield{display:block}
+@media (max-width:900px){
+  .stage.overview,.stage.focus{grid-template-columns:1fr}
+  .stage.focus .panel.big,.stage.focus .panel:not(.big){grid-column:1;grid-row:auto}
+}
+</style>
+</head>
+<body>
+<nav class="tabs"><a href="studio.html" class="cur">Studio</a><a href="index.html">FM-1</a><a href="tb303.html">TB-303 / TD-3</a><a href="tr909.html">TR-909</a></nav>
+<div class="sync">
+  <b>🔗 SYNC</b>
+  <button id="syncGo">▶ Start all</button>
+  <label>Tempo <input type="number" id="syncBpm" min="40" max="300" value="126"> BPM</label>
+  <button id="tapBtn" title="Tap at least twice in time">Tap</button>
+  <label><input type="checkbox" data-m="fm1" checked> FM-1 (sequencer)</label>
+  <label><input type="checkbox" data-m="tb303" checked> TB-303</label>
+  <label><input type="checkbox" data-m="tr909" checked> TR-909</label>
+  <span style="display:flex;gap:4px" id="beats"><i class="beat"></i><i class="beat"></i><i class="beat"></i><i class="beat"></i></span>
+  <span id="syncMsg">Tempo applies to every checked machine; Start launches them on the same downbeat.</span>
+</div>
+<div class="bar">
+  <button id="overview">▦ Overview</button>
+  <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard plays the machine you clicked last.</span>
+</div>
+<div class="stage overview" id="stage">
+  <div class="panel" data-id="fm1" style="--vt:p-fm1"><div class="ph"><b>FM-1</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="index.html" title="FM-1"></iframe><div class="shield"></div></div></div>
+  <div class="panel" data-id="tb303" style="--vt:p-tb303"><div class="ph"><b>TB-303 / TD-3</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="tb303.html" title="TB-303"></iframe><div class="shield"></div></div></div>
+  <div class="panel" data-id="tr909" style="--vt:p-tr909"><div class="ph"><b>TR-909</b><button title="Enlarge">⤢</button></div><div class="frame"><iframe src="tr909.html" title="TR-909"></iframe><div class="shield"></div></div></div>
+</div>
+<script>
+// Each machine renders at its full design width inside an iframe and is scaled down to fit its panel.
+const DW=1220;
+const stage=document.getElementById('stage');
+const panels=[...document.querySelectorAll('.panel')];
+let focused=null;
+function contentHeight(f){try{const b=f.contentDocument.body;const cs=getComputedStyle(b);
+  return Math.ceil(b.getBoundingClientRect().height+parseFloat(cs.marginTop)+parseFloat(cs.marginBottom));}catch(_){return 900;}}
+function fit(){for(const p of panels){const fr=p.querySelector('.frame'),f=fr.querySelector('iframe');
+  const s=Math.min(1,fr.clientWidth/DW),h=Math.max(300,contentHeight(f));
+  f.style.width=DW+'px';f.style.height=h+'px';f.style.transform='scale('+s+')';fr.style.height=Math.ceil(h*s)+'px';}}
+function setLayout(id){
+  const run=()=>{focused=id;stage.classList.toggle('overview',!id);stage.classList.toggle('focus',!!id);
+    panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.ph button').textContent=p.dataset.id===id?'⤡':'⤢';});
+    // focused machine first so it takes the big slot
+    if(id) stage.prepend(panels.find(p=>p.dataset.id===id));
+    else panels.forEach(p=>stage.appendChild(p));
+    fit();};
+  document.startViewTransition?document.startViewTransition(run):run();
+}
+panels.forEach(p=>{
+  p.querySelector('.ph').addEventListener('click',()=>setLayout(focused===p.dataset.id?null:p.dataset.id));
+  p.querySelector('.shield').addEventListener('click',()=>setLayout(p.dataset.id));
+  const f=p.querySelector('iframe');
+  f.addEventListener('load',()=>{fit();try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}});
+});
+document.getElementById('overview').onclick=()=>setLayout(null);
+window.addEventListener('resize',fit);
+
+// ---------- Shared transport
+const api=id=>{try{return panels.find(p=>p.dataset.id===id).querySelector('iframe').contentWindow.syncAPI;}catch(_){return null;}};
+const chosen=()=>[...document.querySelectorAll('[data-m]')].filter(c=>c.checked).map(c=>c.dataset.m);
+const NAMES={fm1:'FM-1',tb303:'TB-303',tr909:'TR-909'};
+const bpmEl=document.getElementById('syncBpm'),go=document.getElementById('syncGo'),msg=document.getElementById('syncMsg');
+let running=false,t0=0,beatTimer=null;
+const bpm=()=>Math.min(300,Math.max(40,+bpmEl.value||120));
+function applyTempo(){for(const id of chosen()){const a=api(id);if(a)a.setTempo(bpm());}}
+bpmEl.addEventListener('input',()=>{if(+bpmEl.value>=40&&+bpmEl.value<=300)applyTempo();});
+async function startAll(){
+  applyTempo();
+  const abs=performance.timeOrigin+performance.now()+250;
+  const res=await Promise.all(chosen().map(async id=>{const a=api(id);return a?[id,await a.start(abs)]:[id,'absent'];}));
+  running=true;t0=abs;go.textContent='■ Stop all';go.classList.add('on');
+  const blocked=res.filter(r=>r[1]!=='running').map(r=>NAMES[r[0]]);
+  msg.textContent=blocked.length?('Audio blocked by the browser for: '+blocked.join(', ')+' → click once inside that machine, then press Start again.'):'Synced at '+bpm()+' BPM.';
+  clearInterval(beatTimer);beatTimer=setInterval(showBeat,30);
+}
+function stopAll(){for(const id of ['fm1','tb303','tr909']){const a=api(id);if(a)a.stop();}
+  running=false;go.textContent='▶ Start all';go.classList.remove('on');clearInterval(beatTimer);
+  document.querySelectorAll('.beat').forEach(b=>b.classList.remove('on'));msg.textContent='Stopped.';}
+go.onclick=()=>running?stopAll():startAll();
+function showBeat(){const el=(performance.timeOrigin+performance.now()-t0)/1000;const b=el<0?-1:Math.floor(el*bpm()/60)%4;
+  document.querySelectorAll('.beat').forEach((x,i)=>x.classList.toggle('on',i===b));}
+let taps=[];
+document.getElementById('tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500);taps.push(n);
+  if(taps.length>=2){const d=(taps[taps.length-1]-taps[0])/(taps.length-1);bpmEl.value=Math.round(60000/d);applyTempo();}};
+// a machine's own Start keeps working; restarting from here re-aligns everything
+window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();go.click();}});
+fit();
+</script>
+</body>
+</html>
