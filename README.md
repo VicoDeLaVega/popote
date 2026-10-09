@@ -5,8 +5,8 @@ No build step and no dependencies: plain HTML + JavaScript, sound generated live
 
 | Page | Machine |
 |---|---|
-| `studio.html` | All three on one screen; click one to enlarge it. Shared tempo and **Start all** to launch them on the same downbeat. |
-| `index.html` | **FM-1** style 6-operator FM synth: 32 DX7-style algorithms, 12 voices, arpeggiator, 16-step sequencer, MIDI input. |
+| `index.html` | **Studio**: all three on one screen; click one to enlarge it. Shared tempo and **Start all** to launch them on the same downbeat. |
+| `fm1.html` | **FM-1** style 6-operator FM synth: 32 DX7-style algorithms, 12 voices, arpeggiator, 16-step sequencer, MIDI input. |
 | `tb303.html` | **TB-303 / TD-3** style acid bass line: resonant filter, accent, slide, 16-step sequencer, 4 patterns. |
 | `tr909.html` | **TR-909** style drum machine: 11 synthesized instruments, accent row, shuffle, live recording. |
 
@@ -20,7 +20,7 @@ AudioWorklet needs the pages served over http (or opened as local files in Chrom
 python -m http.server 8792
 ```
 
-Then open http://localhost:8792/studio.html.
+Then open http://localhost:8792/.
 
 ## Notes
 
