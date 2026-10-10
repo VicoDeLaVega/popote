@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FM-1 Simulator</title>
 <script src="skins.js"></script>
+<script src="midi.js"></script>
 <style>
 :root{
   --bg:#d9d6cf; --body:#f1efea; --body2:#e2ded5; --ink:#24262b; --muted:#77736b;
@@ -431,16 +432,15 @@ function setOct(o){o=Math.max(-3,Math.min(3,o));if(o===octave)return;
   octave=o;$('#octV').textContent=(o>0?'+':'')+o;labelKB();lastMsg='Octave '+(o>0?'+':'')+o;drawLCD();}
 
 // ---------- MIDI
+// In the studio, the studio page owns MIDI and routes it here through syncAPI.midi
 function initMIDI(){
-  if(!navigator.requestMIDIAccess){$('#midiS').textContent='MIDI not supported';return;}
-  navigator.requestMIDIAccess().then(acc=>{
-    const bind=()=>{let c=0;acc.inputs.forEach(inp=>{c++;inp.onmidimessage=m=>{
-      const [st,d1,d2]=m.data;const t=st&0xf0;
-      if(t===0x90&&d2>0) keyDown(d1,d2/127);
-      else if(t===0x80||(t===0x90&&d2===0)) keyUp(d1);
-    };});$('#midiS').textContent=c?('MIDI: '+c+' input(s)'):'MIDI: no device';};
-    bind();acc.onstatechange=bind;
-  }).catch(()=>{$('#midiS').textContent='MIDI denied';});
+  if(PopoteMIDI.inStudio()){$('#midiS').textContent='MIDI: routed by the Studio';return;}
+  PopoteMIDI.listen(midiMsg,s=>{$('#midiS').textContent=s;});
+}
+function midiMsg(m){
+  if(m.type==='on')keyDown(m.note,m.vel);
+  else if(m.type==='off')keyUp(m.note);
+  else if(m.type==='alloff')$('#panic').click();
 }
 
 // ---------- Operator editor
@@ -624,7 +624,8 @@ window.syncAPI={
     const b=this._buf,hz=ctx.sampleRate/512;this._an.getByteFrequencyData(b);
     const avg=(lo,hi)=>{let s=0,n=0;for(let i=Math.max(1,Math.floor(lo/hz));i<=Math.min(255,Math.floor(hi/hz));i++){s+=b[i];n++;}return n?s/n/255:0;};
     return [avg(30,160),avg(160,2000),avg(2000,10000)];},
-  remoteNote(m){if(m.on)keyDown(m.n,m.vel,true);else keyUp(m.n,true);}
+  remoteNote(m){if(m.on)keyDown(m.n,m.vel,true);else keyUp(m.n,true);},
+  midi:midiMsg
 };
 
 // ---------- Boot

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Synth Studio</title>
 <script src="skins.js"></script>
+<script src="midi.js"></script>
 <style>
 :root{ --bg:#d9d6cf; --ink:#1d1f23; --muted:#5d6168; --accent:#ff6a2b; --onink:#fff; --btn:#f6f7f8; --line:#a9aeb5; }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#101114; --ink:#e8e8e8; --muted:#9a9a9a; --btn:#2a2c31; --line:#44474e; } }
@@ -48,6 +49,11 @@ input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var
 .ph .pp{min-width:34px;font-weight:700}
 .ph .pp.on{background:#2fa84f;border-color:#2fa84f;color:#fff}
 .ph .rm{opacity:.7}
+.ph .mi{display:none;font-style:normal;margin-left:6px;font-size:12px}
+.panel.midi .ph .mi{display:inline}
+#midiBox{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:13px}
+#midiBox .hint{font-size:12px;color:var(--muted)}
+html.fx #midiBox .hint{color:#b9b2d8}
 .addtile{order:999;border:2px dashed rgba(127,127,127,.45);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;min-height:140px;color:var(--muted)}
 .addtile div{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .addtile button{font-weight:700}
@@ -91,12 +97,16 @@ html.vj #vjExit{display:block}
   <span style="display:flex;gap:4px"><i class="beat"></i><i class="beat"></i><i class="beat"></i><i class="beat"></i></span>
   <span id="syncMsg">Start all launches every machine on the same downbeat; ▶ on a machine starts just that one.</span>
 </div>
+<div class="strip">
+  <b>MIDI</b>
+  <span id="midiBox"></span>
+</div>
 <div class="bar">
   <button id="overview">▦ Overview</button>
   <button id="fxBtn" title="Audio-reactive fractal worlds in the background">🌌 Visuals: on</button>
   <button id="fxNext" title="Jump to the next world">⟳ Next world</button>
   <button id="fxVj" title="Hide the machines and show only the visuals (Esc to come back)">⛶ VJ mode</button>
-  <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard plays the machine you clicked last.</span>
+  <span class="hint">Click a machine's title (or a thumbnail) to enlarge it. The computer keyboard and MIDI controllers play the machine you clicked last (🎹).</span>
 </div>
 <div class="stage overview" id="stage">
   <div class="addtile" id="addTile"><span>Add a machine</span><div><button data-add="fm1">+ FM-1</button><button data-add="tb303">+ TB-303</button><button data-add="tr909">+ TR-909</button></div></div>
@@ -118,6 +128,7 @@ function fit(){for(const p of panels){const fr=p.querySelector('.frame'),f=fr.qu
   f.style.width=DW+'px';f.style.height=h+'px';f.style.transform='scale('+s+')';fr.style.height=Math.ceil(h*s)+'px';}}
 function setLayout(id){
   if(id&&!panels.some(p=>p.dataset.id===id))id=null;
+  if(id)setMidiFocus(id);
   const run=()=>{focused=id;stage.classList.toggle('overview',!id);stage.classList.toggle('focus',!!id);
     panels.forEach(p=>{p.classList.toggle('big',p.dataset.id===id);p.querySelector('.zoom').textContent=p.dataset.id===id?'⤡':'⤢';});
     // reorder with CSS only: moving an iframe in the DOM would reload it and stop the machine
@@ -128,7 +139,7 @@ function setLayout(id){
 function addPanel(id){
   const [type,slot]=id.split('-'),[name,src]=TYPES[type];
   const p=document.createElement('div');p.className='panel';p.dataset.id=id;p.style.setProperty('--vt','p-'+id);
-  p.innerHTML=`<div class="ph"><b>${name}<em>${slot.toUpperCase()}</em></b><span class="hb">
+  p.innerHTML=`<div class="ph"><b>${name}<em>${slot.toUpperCase()}</em><i class="mi" title="Receives your MIDI">🎹</i></b><span class="hb">
     <button class="pp" title="Play / stop this machine">▶</button><button class="zoom" title="Enlarge">⤢</button><button class="rm" title="Remove this machine">×</button></span></div>
     <div class="frame"><iframe src="${src}?slot=${slot}" title="${name} ${slot.toUpperCase()}"></iframe><div class="shield"></div></div>`;
   stage.insertBefore(p,$('#addTile'));panels.push(p);
@@ -140,16 +151,17 @@ function addPanel(id){
   const f=p.querySelector('iframe');
   return new Promise(res=>f.addEventListener('load',()=>{p.dataset.loaded=1;fit();
     try{new f.contentWindow.ResizeObserver(fit).observe(f.contentDocument.body);}catch(_){}
+    try{f.contentWindow.addEventListener('pointerdown',()=>setMidiFocus(id),true);}catch(_){}
     onPanelLoaded(id);res();},{once:true}));
 }
 function removePanel(id){const p=panels.find(p=>p.dataset.id===id);if(!p)return;
   const a=api(id);if(a&&a.playing)a.stop();
   panels=panels.filter(x=>x!==p);p.remove();delete lastFlat[id];
-  if(focused===id)setLayout(null);fit();}
+  if(focused===id)setLayout(null);fit();renderMidi();}
 function syncPanels(){
   for(const p of [...panels])if(!transport.machines.includes(p.dataset.id))removePanel(p.dataset.id);
   const adds=transport.machines.filter(id=>TYPES[id.split('-')[0]]&&!panels.some(p=>p.dataset.id===id)).map(addPanel);
-  setLayout(focused);
+  setLayout(focused);renderMidi();
   try{localStorage.setItem('studioMachines',JSON.stringify(transport.machines));}catch(_){}
   return Promise.all(adds);
 }
@@ -276,6 +288,56 @@ let taps=[];
 $('#tapBtn').onclick=()=>{const n=performance.now();taps=taps.filter(t=>n-t<2500);taps.push(n);
   if(taps.length>=2){const d=(taps[taps.length-1]-taps[0])/(taps.length-1);setBpm(Math.round(60000/d));}};
 window.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();go.click();}});
+
+// ---------- MIDI: the studio owns every controller and sends each one to a machine.
+// "Selected machine" (default) follows the machine you clicked last; a menu per controller can pin it to one machine.
+// Routing is local to this browser; the notes then reach the other players like any note played live.
+let midiFocus=null,midiIns=[],midiStatus='',midiOn=false;
+const midiHeld=new Map(); // input:channel:note -> machine that got the note-on, so the note-off follows it
+let midiRoutes={};try{midiRoutes=JSON.parse(localStorage.getItem('studioMidiRoutes')||'{}')||{};}catch(_){}
+const machineName=id=>{const [t,s]=id.split('-');return (TYPES[t]?TYPES[t][0]:t)+' '+s.toUpperCase();};
+const selectedMachine=()=>transport.machines.includes(midiFocus)?midiFocus:(focused||transport.machines[0]||null);
+function midiTarget(inp){const r=midiRoutes[inp.name]||'focus';
+  if(r==='off')return null;
+  return r!=='focus'&&transport.machines.includes(r)?r:selectedMachine();}
+function setMidiFocus(id){if(midiFocus===id)return;midiFocus=id;renderMidi();}
+function toMachine(id,m){const a=api(id);if(a&&a.midi)a.midi(m);}
+function midiIn(m){
+  const key=m.input.id+':'+m.ch+':'+m.note;
+  if(m.type==='on'){const id=midiTarget(m.input);if(!id)return;
+    const prev=midiHeld.get(key);if(prev)toMachine(prev,{type:'off',note:m.note,ch:m.ch});
+    midiHeld.set(key,id);toMachine(id,m);}
+  else if(m.type==='off'){const id=midiHeld.get(key);if(!id)return;midiHeld.delete(key);toMachine(id,m);}
+  else if(m.type==='alloff'){midiHeld.clear();transport.machines.forEach(id=>toMachine(id,m));}
+}
+function renderMidi(){
+  const box=$('#midiBox');box.textContent='';
+  const targets=new Set();
+  if(!midiOn){
+    const b=document.createElement('button');b.textContent='🎹 Connect MIDI';b.onclick=connectMidi;box.appendChild(b);
+    const h=document.createElement('span');h.className='hint';h.textContent=midiStatus||'Plug a controller, then connect.';box.appendChild(h);
+  }else if(!midiIns.length){
+    const h=document.createElement('span');h.className='hint';h.textContent=midiStatus||'No MIDI device. Plug one in, it shows up here.';box.appendChild(h);
+  }else for(const inp of midiIns){
+    const lab=document.createElement('label'),sel=document.createElement('select');
+    lab.append((inp.name||'MIDI input')+' →',sel);
+    const cur=selectedMachine(),opt=(v,t)=>{const o=document.createElement('option');o.value=v;o.textContent=t;sel.appendChild(o);};
+    opt('focus','Selected machine'+(cur?' ('+machineName(cur)+')':''));
+    transport.machines.forEach(id=>opt(id,machineName(id)));
+    opt('off','Off');
+    const r=midiRoutes[inp.name]||'focus';sel.value=(r==='focus'||r==='off'||transport.machines.includes(r))?r:'focus';
+    sel.onchange=()=>{midiRoutes[inp.name]=sel.value;try{localStorage.setItem('studioMidiRoutes',JSON.stringify(midiRoutes));}catch(_){}renderMidi();};
+    box.appendChild(lab);
+    const t=midiTarget(inp);if(t)targets.add(t);
+  }
+  if(!midiOn||!midiIns.length){const t=selectedMachine();if(t)targets.add(t);}
+  panels.forEach(p=>p.classList.toggle('midi',targets.has(p.dataset.id)));
+}
+function connectMidi(){
+  PopoteMIDI.listen(midiIn,(status,ins)=>{midiStatus=status;midiIns=ins||[];
+    midiOn=!/denied|not supported/.test(status);renderMidi();});
+}
+PopoteMIDI.granted().then(g=>{if(g)connectMidi();else renderMidi();});
 
 syncPanels().then(connect);
 </script>

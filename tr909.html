@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Rhythm 909</title>
 <script src="skins.js"></script>
+<script src="midi.js"></script>
 <style>
 :root{
   --bg:#d9d6cf; --ink:#1d1f23; --muted:#5d6168;
@@ -233,6 +234,7 @@ function ensureAudio(){
     node.connect(ctx.destination);sendP();sendPat();await Promise.race([ctx.resume(),new Promise(r=>setTimeout(r,400))]);
     document.addEventListener('pointerdown',()=>{if(ctx.state!=='running')ctx.resume();});
     $('#power').textContent='● Audio on';$('#power').classList.add('ready');
+    if(!PopoteMIDI.inStudio())PopoteMIDI.listen(midiMsg);
   })();
   return audioP;
 }
@@ -327,6 +329,15 @@ window.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||e.repea
     if(studio)studio.toggle();else togglePlay();return;}
   if(KEYS[e.code]){e.preventDefault();hit(KEYS[e.code],e.shiftKey?1:.8);}});
 
+// ---------- MIDI: GM drum notes (MPK-style pads send 36-51); other keys map C, C#, D... to the instrument rows
+const GM={35:'BD',36:'BD',37:'RS',38:'SD',40:'SD',39:'CP',41:'LT',43:'LT',45:'MT',47:'MT',48:'HT',50:'HT',
+  42:'CH',44:'CH',46:'OH',49:'CR',52:'CR',55:'CR',57:'CR',51:'RD',53:'RD',59:'RD'};
+function midiMsg(m){
+  if(m.type!=='on')return;
+  const order=INST.map(i=>i.id),id=GM[m.note]||order[((m.note%12)+12)%12%order.length];
+  hit(id,.4+.6*m.vel);
+}
+
 // ---------- Studio sync: the studio page calls window.syncAPI to share tempo and start every machine on the same instant
 function ctxTimeAt(abs){const ts=ctx.getOutputTimestamp&&ctx.getOutputTimestamp();
   if(ts&&ts.performanceTime>0)return ts.contextTime+(abs-performance.timeOrigin-ts.performanceTime)/1000;
@@ -349,7 +360,8 @@ window.syncAPI={
     const b=this._buf,hz=ctx.sampleRate/512;this._an.getByteFrequencyData(b);
     const avg=(lo,hi)=>{let s=0,n=0;for(let i=Math.max(1,Math.floor(lo/hz));i<=Math.min(255,Math.floor(hi/hz));i++){s+=b[i];n++;}return n?s/n/255:0;};
     return [avg(30,160),avg(160,2000),avg(2000,10000)];},
-  remoteNote(m){if(node)send({type:'hit',id:m.id,v:m.v});}
+  remoteNote(m){if(node)send({type:'hit',id:m.id,v:m.v});},
+  midi:midiMsg
 };
 
 renderBanks();renderGrid();

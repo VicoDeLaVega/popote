@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Acid Bass Line</title>
 <script src="skins.js"></script>
+<script src="midi.js"></script>
 <style>
 :root{
   --bg:#d9d6cf; --ink:#1d1f23; --muted:#5d6168;
@@ -227,6 +228,7 @@ function ensureAudio(){
     sendP();sendPat();await Promise.race([ctx.resume(),new Promise(r=>setTimeout(r,400))]);
     document.addEventListener('pointerdown',()=>{if(ctx.state!=='running')ctx.resume();});
     $('#power').textContent='● Audio on';$('#power').classList.add('ready');
+    if(!PopoteMIDI.inStudio())PopoteMIDI.listen(midiMsg);
   })();
   return audioP;
 }
@@ -348,6 +350,25 @@ window.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||e.repea
     if(studio)studio.toggle();else togglePlay();return;}
   if(!(e.code in CODE_MAP))return;e.preventDefault();codes[e.code]=CODE_MAP[e.code];noteDown(CODE_MAP[e.code]);});
 window.addEventListener('keyup',e=>{if(codes[e.code]!=null){noteUp(codes[e.code]);delete codes[e.code];}});
+// ---------- MIDI: real notes, legato = slide, velocity >= 115 or the live Accent button = accent
+const mHeld=[];
+function midiMsg(m){
+  if(m.type==='alloff'){mHeld.length=0;liveSend({type:'noff'});return;}
+  const vis=(n,on)=>{const k=kbKeys[n-36-12*kbOct];if(k)k.classList.toggle('down',on);};
+  if(m.type==='on'){
+    vis(m.note,true);
+    if(writeMode){const r=m.note-36,o=Math.max(-1,Math.min(1,Math.floor(r/12)));let s=r-12*o;if(s<0||s>12)s=((r%12)+12)%12;
+      const x=pat()[sel];x.n=s;x.o=o;x.g=true;sel=(sel+1)%st.P.len;sendPat();renderGrid();}
+    if(playing&&!writeMode)return;
+    const legato=mHeld.length>0;mHeld.push(m.note);
+    ensureAudio().then(()=>liveSend({type:'non',n:m.note,acc:liveAcc||m.vel>=.9,legato}));
+  }else if(m.type==='off'){
+    vis(m.note,false);const i=mHeld.indexOf(m.note);if(i<0)return;mHeld.splice(i,1);
+    if(!node)return;
+    if(!mHeld.length)liveSend({type:'noff'});
+    else if(i===mHeld.length)liveSend({type:'non',n:mHeld[mHeld.length-1],acc:liveAcc,legato:true});
+  }
+}
 const setOct=o=>{kbOct=Math.max(-1,Math.min(1,o));$('#oV').textContent='Oct '+(kbOct>0?'+':'')+kbOct;};
 $('#oDn').onclick=()=>setOct(kbOct-1);$('#oUp').onclick=()=>setOct(kbOct+1);
 
@@ -371,7 +392,8 @@ window.syncAPI={
     const b=this._buf,hz=ctx.sampleRate/512;this._an.getByteFrequencyData(b);
     const avg=(lo,hi)=>{let s=0,n=0;for(let i=Math.max(1,Math.floor(lo/hz));i<=Math.min(255,Math.floor(hi/hz));i++){s+=b[i];n++;}return n?s/n/255:0;};
     return [avg(30,160),avg(160,2000),avg(2000,10000)];},
-  remoteNote(m){if(node)send(m);}
+  remoteNote(m){if(node)send(m);},
+  midi:midiMsg
 };
 
 // ---------- Boot

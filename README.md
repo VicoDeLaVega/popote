@@ -6,7 +6,7 @@ Plain HTML + JavaScript in the browser (sound generated live with the Web Audio 
 | Page | Machine |
 |---|---|
 | `index.html` | **Studio**: the three machines, with + buttons to add more and ▶ / ■ on each one. Click a machine to enlarge it. Shared tempo, **Start all** on the same downbeat, and multiplayer rooms. |
-| `fm1.html` | **FM-1** style 6-operator FM synth: 32 DX7-style algorithms, 12 voices, arpeggiator, 16-step sequencer, MIDI input. |
+| `fm1.html` | **FM-1** style 6-operator FM synth: 32 DX7-style algorithms, 12 voices, arpeggiator, 16-step sequencer. |
 | `tb303.html` | **TB-303 / TD-3** style acid bass line: resonant filter, accent, slide, 16-step sequencer, 4 patterns. |
 | `tr909.html` | **TR-909** style drum machine: 11 synthesized instruments, accent row, shuffle, live recording. |
 
@@ -20,6 +20,14 @@ Everyone who opens the studio with the same `?room=` name shares one session: kn
 tempo and Start/Stop are synced, and notes played live are heard by the others. Each player's browser
 generates the full sound locally, so only small control messages travel over the network.
 Use **Copy invite link** to share the room.
+
+## MIDI controllers
+
+Use Chrome or Edge (Web MIDI needs https or localhost; Safari has no Web MIDI).
+On a machine's own page, every connected controller plays it. In the studio, the **MIDI** row lists each controller:
+by default it plays the **selected machine** (the one you clicked last, marked 🎹), or pick a machine for it in its menu.
+The TB-303 plays the notes you send (legato = slide, hard hits = accent); the TR-909 follows the General MIDI drum map
+(pads on notes 36-51), other keys walk the instrument rows from C. The routing is saved per browser.
 
 ## Run locally
 
